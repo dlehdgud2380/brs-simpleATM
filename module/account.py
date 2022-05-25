@@ -104,8 +104,9 @@ class BankUser: # Search BankUser
             }
         }
         
-        for account in self.user.accounts:
+        for index, account in enumerate(self.user.accounts):
             self.info['accounts'][f'{account.serial}'] = {
+                'accountId':index,
                 'username': account.username,
                 'owner': account.owner,
                 'serial': account.serial,
@@ -128,15 +129,32 @@ class BankUser: # Search BankUser
         else:
             return False
         
-    def userinfo(self):
+    def userinfo(self) -> Dict: # user data
         return self.info['user']
     
-    def cardinfo(self):
+    def cardinfo(self) -> Dict: # card data
         return self.info['card']
     
-    def account(self, serial): # account search
-        return self.info['account'][f'{serial}']
+    def account(self, serial='') -> Dict: # account data
+        if serial == '':
+            return self.info['accounts']
+        else:
+            return self.info['accounts'][f'{serial}']
     
+    def balance_update(self, account_index: int, money: int, mode: str) -> None:
+        account = self.user.accounts[account_index]
+        if mode == 'plus':
+            account.balance += money
+        elif mode == 'minus':
+            test: int = account.balance - money 
+            if test < 0:
+                print("Can`t Withdraw Money")
+            else:
+                account.balance -= money
+        else:
+            print("Incorrect mode")
+        session.commit()
+            
     def data(self):
         return self.info
     
@@ -148,5 +166,5 @@ if __name__ == '__main__': # module test
     #asd.user()
     #asd.card("1234")
     #asd.account()
-    #print(BankUser(username="hello", password="hello123"))
-    print(BankUser(card_serial="23600", card_pin="1234"))
+    #print(BankUser(username="hello", password="hello123").data())
+    #print(BankUser(card_serial="23600", card_pin="1234").balance_update(0, 10000, 'minus'))
