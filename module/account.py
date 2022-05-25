@@ -1,76 +1,152 @@
-# Account Search Module and Banking
+# Account Management Module
 
+from typing import Dict
 from model import User, Account, Card
 from sqlalchemy.orm import Session
 from random import randint
 from sqlalchemy import create_engine
 
-engine = create_engine("sqlite:///./account.db", echo=False, future=True)
-    
-class Register: # Register to Banking System
-    def __init__(self, name, password, owner):
+import json
+
+engine = create_engine("sqlite:///../database/account.db", echo=False, future=True)
+session = Session(engine)
+class Register:  # Register to Banking System
+    def __init__(self, name: str, password: str, owner: str):
         self.name = name
-        self.owner = owner
         self.password = password
-        self.account_serial = None
+        self.owner = owner
+    
+    def user(self) -> None: # User add to database
+    
+        user_check = session.query(User).filter(User.name == self.name, User.password == self.password).first()
+        if bool(user_check) is False: # register new user
+            new_user = User(
+                name=self.name,
+                password=self.password,
+                card_serial=None,
+                accounts=[]
+            )
+            session.add(new_user)
+            session.commit()
+            print('User registered')
+        else: # if account is exists
+            print('User already registered')
         
-        with Session(engine) as session:
-            find_user = session.query(User).filter(User.name == self.name, User.password == self.password).first()
-            if bool(find_user) is False: # if user is not found
-                new_user = User(
-                    name=self.name,
-                    password=self.password,
-                    account=[
-                        Account(
-                            owner = self.owner, 
-                            serial=f'1{str(randint(1000, 9999))}', # serial generation 11000~19999
-                            balance=0,
-                            card_serial='None'
-                        )
-                    ],
-                )
-                session.add(new_user)
-                session.commit()
-                print('account created')
-            else: # User already exists
-                print('already exists')
-                get_account = session.query(Account).filter(Account.username == self.name, Account.owner == self.owner).first()
-                self.account_serial = get_account.serial
-                
-    def account_add(self):
+    def card(self, pin) -> None: # card add to database
+        card_check = session.query(Card).filter(Card.owner == self.owner, Card.username == self.name).first()
         
-                
-    def card_add(self, pin: str):
-        card_serial = f'2{str(randint(1000, 9999))}' # serial generation 21000~29999
-        with Session(engine) as session:
+        if bool(card_check) is False: # if card is not exists
+            card_serial: str = f'2{randint(1000,9999)}'
             new_card = Card(
+                username=self.name,
                 owner=self.owner,
                 serial=card_serial,
-                pin=pin,
+                pin=pin
             )
-            
-            # update account info
-            account = session.query(Account).filter(Account.serial == self.account_serial).first()
-            # print(account.owner)
-            account.card_serial = card_serial
-            
             session.add(new_card)
+            user = session.query(User).filter(User.name == self.name, User.password == self.password).first()
+            user.card_serial = card_serial
             session.commit()
-
-class Unregister: # Unregister from Banking System
-    pass
-
-
-class UserInfo:
-    pass
-    def userinfo():
-        pass
-    def account():
-        pass
-    def card():
-        pass
+            print('Card added')
+        else: 
+            print('Card already exists')
+        
+    def account(self): # account add to database
+        user = session.query(User).filter(User.name == self.name, User.password == self.password).first()
+        account_serial: str = f'1{randint(1000,9999)}'
+        accounts: list = user.accounts
+        
+        if len(accounts) >= 3:
+            print('Accounts reached maximum')
+        else:  
+            if bool(user.accounts) is False or account_serial not in accounts:
+                new_accounts = Account(
+                    username=self.name,
+                    owner=self.owner,
+                    serial=account_serial,
+                    balance=0
+                )
+                session.add(new_accounts)
+                session.commit()
+                print('Account added')
+            else:
+                print('Account already exists')
+        
+class BankUser: # Search BankUser
+    def __init__(self, card_serial: str = "", card_pin: str = "", username: str="", password: str=""):
+        
+        # for account login variables
+        self.username = username
+        self.password = password
+        self.card_serial = card_serial
+        self.card_pin = card_pin
+        
+        # GET DB Query
+        self.user = None
+        self.card = None
+        
+        cardlogin = self.card_login()
+        userlogin = self.user_login()
+        
+        print(f'card_login: {cardlogin}\nuser_login: {userlogin}')
+        
+        self.info: Dict = {
+            "user":{
+                "name": self.user.name,
+                "card_serial": self.user.card_serial,
+            },
+            "card":{
+                "username": self.card.username,
+                "owner": self.card.owner,
+                "serial": self.card.serial
+            },
+            "accounts":{
+            }
+        }
+        
+        for account in self.user.accounts:
+            self.info['accounts'][f'{account.serial}'] = {
+                'username': account.username,
+                'owner': account.owner,
+                'serial': account.serial,
+                'balance': account.balance
+            }
+            
+    def card_login(self) -> bool:
+        if bool(self.card_serial) is True and bool(self.card_pin) is True:
+            self.card = session.query(Card).filter(Card.serial == self.card_serial, Card.pin == self.card_pin).first()
+            self.user = session.query(User).filter(User.card_serial == self.card.serial).first()
+            return True
+        else:
+            return False
     
+    def user_login(self) -> bool:
+        if bool(self.username) is True and bool(self.password) is True:
+            self.user = session.query(User).filter(User.name == self.username, User.password == self.password).first()
+            self.card = session.query(Card).filter(Card.serial == self.user.card_serial, Card.username == self.user.name).first()
+            return True
+        else:
+            return False
+        
+    def userinfo(self):
+        return self.info['user']
+    
+    def cardinfo(self):
+        return self.info['card']
+    
+    def account(self, serial): # account search
+        return self.info['account'][f'{serial}']
+    
+    def data(self):
+        return self.info
+    
+    def __repr__(self):
+        return str(json.dumps(self.info, sort_keys=False, indent=4))
 
-if __name__ == '__main__':
-    Register("hello", "hello123", "watson").card_add('1234')
-    #Register.card_add('18339', '1234')
+if __name__ == '__main__': # module test
+    #asd = Register("hello", "hello123", "watson")
+    #asd.user()
+    #asd.card("1234")
+    #asd.account()
+    #print(BankUser(username="hello", password="hello123"))
+    print(BankUser(card_serial="23600", card_pin="1234"))
