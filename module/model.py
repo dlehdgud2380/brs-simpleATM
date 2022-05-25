@@ -14,7 +14,8 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(30))
     password = Column(String(30))
-    account= relationship("Account", backref="User")
+    card_serial = Column(String(5), nullable=True)
+    accounts = relationship("Account", backref="User")
 
 class Account(Base):
     __tablename__ = "account"
@@ -23,23 +24,22 @@ class Account(Base):
     username = Column(String(30), ForeignKey("user.name"))
     owner = Column(String(50))
     serial = Column(String(5))
-    card_serial = Column(String(5), ForeignKey("card.serial"), nullable=True)
     balance = Column(Integer)
     
 class Card(Base):
     __tablename__ = "card"
     
     id = Column(Integer, primary_key=True)
+    username = Column(String(30))
     owner = Column(String(30))
     serial = Column(String(5))
     pin = Column(String(4))
-    account= relationship("Account", backref="Card")
 
     
 def create_db():
-    conn = sqlite3.connect("account.db")
+    conn = sqlite3.connect("../database/account.db")
     conn.close()
-    engine = create_engine("sqlite:///./account.db", echo=True, future=True)
+    engine = create_engine("sqlite:///../database/account.db", echo=True, future=True)
     Base.metadata.create_all(engine)
     
 if __name__ == '__main__':
