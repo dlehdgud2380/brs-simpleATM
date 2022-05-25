@@ -9,28 +9,32 @@ import sqlite3
 Base = declarative_base()
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
     
     id = Column(Integer, primary_key=True)
     name = Column(String(30))
-    accounts = relationship("users", backref="users")
+    password = Column(String(30))
+    account= relationship("Account", backref="User")
 
 class Account(Base):
-    __tablename__ = "accounts"
+    __tablename__ = "account"
     
     id = Column(Integer, primary_key=True)
-    owner = Column(String(30), ForeignKey("users.name"))
+    username = Column(String(30), ForeignKey("user.name"))
+    owner = Column(String(50))
     serial = Column(String(5))
-    cards = relationship("Card", backref="accounts")
-    pin = Column(String(4))
+    card_serial = Column(String(5), ForeignKey("card.serial"), nullable=True)
+    balance = Column(Integer)
     
 class Card(Base):
-    __tablename__ = "cards"
+    __tablename__ = "card"
     
     id = Column(Integer, primary_key=True)
-    owner = Column(String(30), ForeignKey("accounts.owner"))
-    account = Column(String(30), ForeignKey("accounts.serial"))
-    serial = Column(Integer)
+    owner = Column(String(30))
+    serial = Column(String(5))
+    pin = Column(String(4))
+    account= relationship("Account", backref="Card")
+
     
 def create_db():
     conn = sqlite3.connect("account.db")
