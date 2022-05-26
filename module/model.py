@@ -13,6 +13,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True)
     name = Column(String(30))
+    customer_name = Column(String(30))
     password = Column(String(30))
     card_serial = Column(String(5), nullable=True)
     accounts = relationship("Account", backref="User")
@@ -37,9 +38,9 @@ class Card(Base):
 
     
 def create_db():
-    conn = sqlite3.connect("../database/account.db")
+    conn = sqlite3.connect("account.db")
     conn.close()
-    engine = create_engine("sqlite:///../database/account.db", echo=True, future=True)
+    engine = create_engine("sqlite:///account.db", echo=True, future=True)
     Base.metadata.create_all(engine)
     
 if __name__ == '__main__':
