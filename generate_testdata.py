@@ -1,5 +1,8 @@
 import module.model as db
 import module.account as account
+from module.model import Card
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
 # database generate
 db.create_db()
@@ -28,3 +31,14 @@ newuser4.user()
 newuser4.card("2468")
 for _ in range(3):
     newuser4.account()
+    
+# make cardlist.txt
+engine = create_engine("sqlite:///account.db", echo=False, future=True)
+session = Session(engine)
+
+f = open('cardlist.txt', 'w')
+f.write("[card List] - Input cardnum, pin for atm_run.py\n\n")
+for card in session.query(Card).all():
+    data: str = f'{card.owner}: {card.serial}(num) - {card.pin}(pin)\n'
+    f.write(data)
+f.close()
