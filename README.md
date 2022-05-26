@@ -9,4 +9,5 @@ The simple ATM
 2. pip install -r requirements.txt
 3. python generate_testdata.py
 4. python atm_run.py
-5. enjoy
+5. enter card number refer to cardlist.txt on project root
+6. enjoy
