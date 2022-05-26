@@ -1,14 +1,13 @@
 # Account Management Module
 
+from email import message
 from typing import Dict
-from model import User, Account, Card
+from .model import User, Account, Card
 from sqlalchemy.orm import Session
 from random import randint
 from sqlalchemy import create_engine
 
-import json
-
-engine = create_engine("sqlite:///../database/account.db", echo=False, future=True)
+engine = create_engine("sqlite:///account.db", echo=False, future=True)
 session = Session(engine)
 class Register:  # Register to Banking System
     def __init__(self, name: str, password: str, owner: str):
@@ -23,6 +22,7 @@ class Register:  # Register to Banking System
             new_user = User(
                 name=self.name,
                 password=self.password,
+                customer_name=self.owner,
                 card_serial=None,
                 accounts=[]
             )
@@ -32,7 +32,7 @@ class Register:  # Register to Banking System
         else: # if account is exists
             print('User already registered')
         
-    def card(self, pin) -> None: # card add to database
+    def card(self, pin: str) -> None: # card add to database
         card_check = session.query(Card).filter(Card.owner == self.owner, Card.username == self.name).first()
         
         if bool(card_check) is False: # if card is not exists
@@ -56,7 +56,7 @@ class Register:  # Register to Banking System
         account_serial: str = f'1{randint(1000,9999)}'
         accounts: list = user.accounts
         
-        if len(accounts) >= 3:
+        if len(accounts) >= 3: # Can make ony 3 Account
             print('Accounts reached maximum')
         else:  
             if bool(user.accounts) is False or account_serial not in accounts:
@@ -85,50 +85,62 @@ class BankUser: # Search BankUser
         self.user = None
         self.card = None
         
+        # login info 
         cardlogin = self.card_login()
         userlogin = self.user_login()
         
-        print(f'card_login: {cardlogin}\nuser_login: {userlogin}')
-        
-        self.info: Dict = {
-            "user":{
-                "name": self.user.name,
-                "card_serial": self.user.card_serial,
-            },
-            "card":{
-                "username": self.card.username,
-                "owner": self.card.owner,
-                "serial": self.card.serial
-            },
-            "accounts":{
-            }
-        }
-        
-        for index, account in enumerate(self.user.accounts):
-            self.info['accounts'][f'{account.serial}'] = {
-                'accountId':index,
-                'username': account.username,
-                'owner': account.owner,
-                'serial': account.serial,
-                'balance': account.balance
+        # if login successful, get data
+        if cardlogin['login'] == True or userlogin['login'] == True:
+            self.info: Dict = {
+                "user":{
+                    "name": self.user.name,
+                    "card_serial": self.user.card_serial,
+                },
+                "card":{
+                    "username": self.card.username,
+                    "owner": self.card.owner,
+                    "serial": self.card.serial
+                },
+                "accounts":{
+                }
             }
             
-    def card_login(self) -> bool:
+            for index, account in enumerate(self.user.accounts):
+                self.info['accounts'][f'{account.serial}'] = {
+                    'accountId':index,
+                    'username': account.username,
+                    'owner': account.owner,
+                    'serial': account.serial,
+                    'balance': account.balance
+                }
+            
+    def card_login(self) -> Dict: # login using card and card_pin
+        message: Dict = {}
         if bool(self.card_serial) is True and bool(self.card_pin) is True:
-            self.card = session.query(Card).filter(Card.serial == self.card_serial, Card.pin == self.card_pin).first()
-            self.user = session.query(User).filter(User.card_serial == self.card.serial).first()
-            return True
+            self.card = session.query(Card).filter(Card.serial == self.card_serial, Card.pin == self.card_pin).first()         
+            if bool(self.card) is False: # if self.card have no data
+                message = {"login": False, "message": "User not found or Card Serial is not correct"}
+            else:
+                self.user = session.query(User).filter(User.card_serial == self.card.serial).first()
+                message = {"login": True, "message": f"'{self.user.customer_name}' Welcome!"}
         else:
-            return False
+            message = {"login": False, "message": "Login using userLogin"}
+        return message
     
-    def user_login(self) -> bool:
+    def user_login(self) -> bool: # login using user and password
+        message: Dict = {}
         if bool(self.username) is True and bool(self.password) is True:
             self.user = session.query(User).filter(User.name == self.username, User.password == self.password).first()
-            self.card = session.query(Card).filter(Card.serial == self.user.card_serial, Card.username == self.user.name).first()
-            return True
+            if bool(self.user) is False: # if self.user have no data
+                message = {"login": False, "message": "Can't find user"}
+            else:
+                self.user = session.query(User).filter(User.card_serial == self.card.serial).first()
+                self.card = session.query(Card).filter(Card.serial == self.user.card_serial, Card.username == self.user.name).first()
+                message = {"login": True, "message": f"Wellcome {self.user.customer_name}!"}
         else:
-            return False
-        
+            message = {"login": False, "message": "Login using cardLogin"}
+        return message
+    
     def userinfo(self) -> Dict: # user data
         return self.info['user']
     
@@ -141,30 +153,32 @@ class BankUser: # Search BankUser
         else:
             return self.info['accounts'][f'{serial}']
     
-    def balance_update(self, account_index: int, money: int, mode: str) -> None:
+    def balance_update(self, account_index: int, money: int, mode: str) -> Dict:
+        message = {}
         account = self.user.accounts[account_index]
         if mode == 'plus':
             account.balance += money
         elif mode == 'minus':
             test: int = account.balance - money 
             if test < 0:
-                print("Can`t Withdraw Money")
+                message = {"balance_update": False, "message": "Can't Withdraw Money"}
             else:
                 account.balance -= money
         else:
-            print("Incorrect mode")
+            message = {"balance_update": False, "message": "Incorrect mode"}
         session.commit()
-            
+        message = {"balance_update": True, "message": "Successful"}
+        return message
+    
     def data(self):
         return self.info
-    
-    def __repr__(self):
-        return str(json.dumps(self.info, sort_keys=False, indent=4))
 
 if __name__ == '__main__': # module test
-    #asd = Register("hello", "hello123", "watson")
-    #asd.user()
-    #asd.card("1234")
-    #asd.account()
-    #print(BankUser(username="hello", password="hello123").data())
-    #print(BankUser(card_serial="23600", card_pin="1234").balance_update(0, 10000, 'minus'))
+    #newuser = Register("hello", "hello123", "watson")
+    #newuser.user()
+    #newuser.card("1234")
+    #newuser.account()
+    
+    #user = BankUser(card_serial="21087", card_pin="1234")
+    #print(user.card_login())
+    pass
